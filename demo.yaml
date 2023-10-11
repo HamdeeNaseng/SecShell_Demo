@@ -7,7 +7,7 @@ networks:
 services:
 
   elasticsearch:
-    image: "docker.elastic.co/elasticsearch/elasticsearch:7.10.2"
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.4.2
     container_name: elasticsearch
     networks:
      - shell-network
@@ -19,9 +19,8 @@ services:
     environment:
       discovery.type: single-node
 
-
   kibana:
-    image: docker.elastic.co/kibana/kibana:7.10.2
+    image: docker.elastic.co/kibana/kibana:8.4.2
     container_name: kibana
     networks:
      - shell-network
@@ -40,37 +39,26 @@ services:
     ports:
      - "9000:9000"
 
-  metricbeat:
-    image: elastic/metricbeat:7.10.2
-    networks:
-     - shell-network
-    depends_on:
-     - elasticsearch
-    environment:
-      ELASTICSEARCH_URL: http://elasticsearch:9200
-    volumes:
-      - ./ufw.log:/usr/share/metricbeat/data/ufw.log
-      - ./logs/imedx1.server.log:/usr/share/metricbeat/data/imedx1.server.log
-      - ./logs/imedx2.server.log:/usr/share/metricbeat/data/imedx2.server.log
-      - ./logs/imedx3.server.log:/usr/share/metricbeat/data/imedx3.server.log
-
   filebeat:
-    image: elastic/filebeat:7.10.2
-    networks:
-     - shell-network
-    depends_on:
-     - elasticsearch
-    environment:
-      ELASTICSEARCH_URL: http://elasticsearch:9200
-      
+    image: elastic/filebeat:8.4.2
     volumes:
       - ./ufw.log:/var/log/ufw.log
       - ./logs/imedx1.server.log:/var/log/imedx1.server.log
       - ./logs/imedx2.server.log:/var/log/imedx2.server.log
       - ./logs/imedx3.server.log:/var/log/imedx3.server.log
-        
+    environment:
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+    networks:
+     - shell-network
+    depends_on:
+     - elasticsearch
+    logging:
+      driver: elasticsearch
+      options:
+        hosts: http://elasticsearch:9200
+
   logstash:
-    image: elastic/logstash:7.10.2
+    image: logstash:8.10.2
     container_name: logstash-secshell
     restart: always
     volumes:
@@ -81,6 +69,5 @@ services:
     command: logstash -f /config-dir/logstash.conf
     networks:
      - shell-network
-
-    
-
+    ports:
+    - "6000:5000"

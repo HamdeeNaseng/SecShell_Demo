@@ -1,0 +1,24 @@
+filebeat.inputs:
+  - type: log
+    enabled: true
+    paths:
+      - /var/log/ufw.log
+      - /var/log/imedx*.server.log
+
+output.logstash:
+  hosts: ["logstash:5044"]  # Change to the hostname of your Logstash container
+
+setup.kibana:
+  host: "kibana:5601"  # Change to the hostname of your Kibana container
+
+filebeat.autodiscover:
+  providers:
+    - type: docker
+      templates:
+        - condition:
+            contains:
+              docker.container.name: "secshell_demo-filebeat-1"  # Adjust to your container's name
+          config:
+            - type: container
+              paths:
+                - /var/lib/docker/containers/${data.docker.container.id}/*.log
