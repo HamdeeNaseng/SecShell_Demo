@@ -7,7 +7,7 @@ networks:
 services:
 
   elasticsearch:
-    image: "docker.elastic.co/elasticsearch/elasticsearch:7.10.2"
+    image: "docker.elastic.co/elasticsearch/elasticsearch:7.17.13"
     container_name: elasticsearch
     networks:
      - shell-network
@@ -17,11 +17,13 @@ services:
     volumes:
     - /tmp:/usr/share/elasticsearch/data
     environment:
-      discovery.type: single-node
+    - discovery.type=single-node
+
+
 
 
   kibana:
-    image: docker.elastic.co/kibana/kibana:7.10.2
+    image: docker.elastic.co/kibana/kibana:7.17.13
     container_name: kibana
     networks:
      - shell-network
@@ -40,39 +42,51 @@ services:
     ports:
      - "9000:9000"
 
-  metricbeat:
-    image: elastic/metricbeat:7.10.2
-    networks:
-     - shell-network
-    depends_on:
-     - elasticsearch
-    environment:
-      ELASTICSEARCH_URL: http://elasticsearch:9200
-    volumes:
-      - ./ufw.log:/usr/share/metricbeat/data/ufw.log
-      - ./logs/imedx1.server.log:/usr/share/metricbeat/data/imedx1.server.log
-      - ./logs/imedx2.server.log:/usr/share/metricbeat/data/imedx2.server.log
-      - ./logs/imedx3.server.log:/usr/share/metricbeat/data/imedx3.server.log
+  # metricbeat:
+  #   image: elastic/metricbeat:7.17.13
+  #   networks:
+  #    - shell-network
+  #   depends_on:
+  #    - elasticsearch
+  #   environment:
+  #     ELASTICSEARCH_URL: http://elasticsearch:9200
+  #   # volumes:
+  #   #   - ./logs/ufw.log:/usr/share/metricbeat/data/ufw.log
+  #   #   - ./logs/imedx1.server.log:/usr/share/metricbeat/data/imedx1.server.log
+  #   #   - ./logs/imedx2.server.log:/usr/share/metricbeat/data/imedx2.server.log
+  #   #   - ./logs/imedx3.server.log:/usr/share/metricbeat/data/imedx3.server.log
 
   filebeat:
-    image: elastic/filebeat:7.10.2
+    image: elastic/filebeat:7.17.13
+    user: root
     networks:
      - shell-network
     depends_on:
-     - elasticsearch
+      - logstash
+      - elasticsearch
+    links:
+      - logstash
     environment:
+      # - outputs.default.type=logstash
+      # - outputs.default.hosts=["0.0.0.0:5044"]
       ELASTICSEARCH_URL: http://elasticsearch:9200
-      
+    command: ["filebeat", "-e", "--strict.perms=false"]   
     volumes:
-      - ./ufw.log:/var/log/ufw.log
+      # - ./filebeat.yml:/usr/share/filebeat/filebeat.yml:rw
+      - ./logs/ufw.log:/var/log/ufw.log
       - ./logs/imedx1.server.log:/var/log/imedx1.server.log
       - ./logs/imedx2.server.log:/var/log/imedx2.server.log
       - ./logs/imedx3.server.log:/var/log/imedx3.server.log
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
         
   logstash:
-    image: elastic/logstash:7.10.2
+    image: elastic/logstash:7.17.13
     container_name: logstash-secshell
-    restart: always
+    ports:
+      - 5044
+    # restart: always
     volumes:
       - ./config-dir:/config-dir
       - ./logs:/logs
@@ -81,6 +95,16 @@ services:
     command: logstash -f /config-dir/logstash.conf
     networks:
      - shell-network
+  
+  javaLogGenerator:
+        container_name: javaLogGenerator
+        labels:
+            - type=javaAppLog
+        image: 'febbweiss/java-log-generator:latest' 
+        depends_on:
+            - filebeat
+        networks:
+            - shell-network 
 
     
 

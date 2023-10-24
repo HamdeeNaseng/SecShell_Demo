@@ -1,24 +1,51 @@
+filebeat.config:
+  modules:
+    path: ${path.config}/modules.d/*.yml
+    reload.enabled: false
+
+processors:
+  - add_cloud_metadata: ~
+  - add_docker_metadata: ~
+
 filebeat.inputs:
-  - type: log
-    enabled: true
-    paths:
-      - /var/log/ufw.log
-      - /var/log/imedx*.server.log
-
-output.logstash:
-  hosts: ["logstash:5044"]  # Change to the hostname of your Logstash container
-
-setup.kibana:
-  host: "kibana:5601"  # Change to the hostname of your Kibana container
+- type: container
+  paths:
+    - /var/lib/docker/containers/*/*.log
+  multiline.type: pattern
+  multiline.pattern: '^[[:space:]]+(at|\.{3})[[:space:]]+\b|^java.lang.RuntimeException:'
+  multiline.negate: false
+  multiline.match: after
+  multiline.max_lines: 200  
+  encoding: utf-8
 
 filebeat.autodiscover:
   providers:
-    - type: docker
-      templates:
+      - type: docker
+        templates:
         - condition:
-            contains:
-              docker.container.name: "secshell_demo-filebeat-1"  # Adjust to your container's name
-          config:
-            - type: container
-              paths:
-                - /var/lib/docker/containers/${data.docker.container.id}/*.log
+              equals:
+                docker.container.image: febbweiss/java-log-generator:latest
+        config:
+          - type: container
+            multiline.type: pattern
+            multiline.pattern: '^[[:space:]]+(at|\.{3})[[:space:]]+\b|^java.lang.RuntimeException:'
+            multiline.negate: false
+            multiline.match: after
+            paths:
+              - /var/lib/docker/containers/${data.docker.container.id}/*.log
+            encoding: utf-8
+monitoring:
+  enabled: true
+  elasticsearch:
+    hosts: '${ELASTICSEARCH_HOSTS:elasticsearch:9200}'
+    username: '${ELASTICSEARCH_USERNAME:}'
+    password: '${ELASTICSEARCH_PASSWORD:}'
+
+output.elasticsearch:
+  hosts: '${ELASTICSEARCH_HOSTS:elasticsearch:9200}'
+  username: '${ELASTICSEARCH_USERNAME:}'
+  password: '${ELASTICSEARCH_PASSWORD:}'
+  
+  index: filebeat-%{+yyyy.MM.dd}
+setup.template.name: "filebeat"
+setup.template.pattern: "filebeat"
